@@ -1,0 +1,151 @@
+---
+title: "Day 1: Linear Regression"
+format: beamer
+editor: source 
+---
+
+## Review Course Schedule
+
+-   Day 1 (01/18/2023): Linear Regression Part I
+-   Day 2 (01/19/2023): Linear Regression Part II and ANOVA
+-   Day 3 (01/20/2023): GLMs for Binary Data
+-   Day 4 (01/23/2023): GLMs for Count Data
+-   Day 5 (01/24/2023): GLMs for Ordinal and Categorical Data
+
+## Overview
+
+-   Ordinary Least Squares (OLS) Regression Algebra
+-   OLS Assumptions
+-   OLS Properties
+- Departures from Assumptions
+- Regression Diagnostics
+
+## Regression Models
+
+-   Regression models are used to identify and quantify relationships between at least one explanatory variable $\mathbf{X}$ and a response variable, $Y$.
+
+$$
+E[Y | X_1, X_2, \dots, X_n] = \mu = \phi(x_1, x_2, \dots, x_n)
+$$
+
+## Linear Regression
+
+We use linear regression when we expect that $\phi$ is linear in terms of coefficients $\beta_1, \beta_2, \dots, \beta_n$. In the simplest case, we have
+
+$$
+E[Y] = \mu = \beta_0 + \beta_1X_1 + \beta_2X_2 + \dots + \beta_nX_n.
+$$
+
+## Linear Regression
+
+Expressed in matrix form, we have
+
+$$
+\begin{pmatrix}
+Y_{1} \\
+Y_{2} \\
+\vdots \\
+Y_{n}
+\end{pmatrix} = \begin{pmatrix}
+x_{10} & x_{11} & x_{12} & \dots & x_{1, \ p-1} \\
+x_{20} & x_{21} & x_{22} & \dots & x_{2, \ p-1} \\
+\vdots  & \vdots & \vdots & \dots & \vdots \\
+x_{n0} & x_{n1} & x_{n2} & \dots x_{n, \ p-1}
+\end{pmatrix} \begin{pmatrix}
+\beta_{0} \\
+\beta_{1} \\
+\vdots \\
+\beta_{p-1}
+\end{pmatrix} + \begin{pmatrix}
+\epsilon_{1} \\
+\epsilon_{2} \\
+\vdots  \\
+\epsilon_{n}
+\end{pmatrix},
+$$ or $$
+Y = \mathbf{X}\beta + \epsilon.
+$$
+
+## Least Squares Estimation
+
+-   We consider the explanatory variables, $\mathbf{X}$, given.
+-   Response variable $Y$ is random.
+-   The coefficients $\beta$ are unknown parameters that we need to estimate.
+-   Least squares estimation chooses the estimator $\hat{\beta}$ of $\beta$ that minimizes the residual sum of squares, $\sum_{i=1}^{n}\epsilon_i^2 = \epsilon^{T}\epsilon$.
+
+## Assumptions
+
+Least squares estimates require two assumptions:
+
+-   The errors have expected value of 0: $E[\epsilon] = 0$.
+-   The errors are uncorrelated and have constant variance: $Var[\epsilon] = \sigma^2\mathbf{I}$.
+
+These two assumptions are also often paired with a third assumption:
+
+-   The errors are normally distributed: $\epsilon \sim \mathcal{N}(0, \sigma^2\mathbf{I})$.
+
+## Ordinary Least Squares
+
+To find an estimator for $\beta$, we need to minimize $$
+\begin{aligned}
+\epsilon^T\epsilon &= (Y - X\beta)^T(Y - X\beta) \\
+&= (Y^T - \beta^TX^T)(Y - X\beta) \\
+&= Y^TY - 2\beta^TX^TY + \beta^TX^TX\beta
+.\end{aligned}
+$$ We differentiate with respect to $\beta$, giving $-2X^TY + 2X^TX\beta.$
+
+Setting this equal to 0 gives a minimum where $$
+  X^TX\beta = X^TY.
+$$
+
+Solving this for $\beta$ yields our estimate: $$
+  \hat{\beta} = (X^TX)^{-1}X^TY.
+$$
+
+## Properties of OLS Estimators
+
+-   $\hat{\beta}$ is unbiased
+
+## Properties of OLS Estimators
+
+-   $\hat{\beta}$ is unbiased
+
+$$
+\begin{aligned}
+E[\hat{\beta}] &= E[(X^TX)^{-1}X^TY] \\
+&= (X^TX)^{-1}X^TE[Y] \\
+&= (X^TX)^{-1}X^TX\beta \\
+&= \beta
+\end{aligned}
+$$
+
+## Properties of OLS Estimators
+
+-   $Var[\hat{\beta}] = \sigma^2(X^TX)^{-1}$
+
+## Properties of OLS Estimators
+
+-   $Var[\hat{\beta}] = \sigma^2(X^TX)^{-1}$
+
+$$
+\begin{aligned}
+Var[\hat{\beta}] &= Var[(X^TX)^{-1}X^TY] \\
+&= (X^TX)^{-1}X^TVar[Y]X(X^TX)^{-1} \\
+&= (X^TX)^{-1}X^T\sigma^2\mathbf{I}X(X^TX)^{-1} \\
+&= \sigma^2(X^TX)^{-1}X^TX(X^TX)^{-1} \\
+&= \sigma^2(X^TX)^{-1}
+\end{aligned}
+$$
+
+## Properties of OLS Estimators
+
+- If $X$ has full rank, then $\hat{\beta}$ has the lowest variance among unbiased linear estimators of $\beta$.
+- $\hat{\beta}$ is often called the Best Linear Unbiased Estimator (BLUE).
+
+## Properties of OLS Estimators
+
+We can estimate $\sigma^2$ with
+$$
+  S^2 = \frac{(Y - X\hat{\beta})^T(Y - X\hat{\beta})}{n - r} = \frac{RSS}{n - r},
+$$
+where $r$ is the rank (number of linearly independent columns) of $X$. This is an unbiased estimator for $\sigma^2$.
