@@ -7,8 +7,9 @@ editor: source
 ## Outline
 
 - Recap
+- Departures from Assumptions
+- Regression Diagnostics
 - One-Way ANOVA
-- Two-Way ANOVA
 
 ## From Last Time...
 
