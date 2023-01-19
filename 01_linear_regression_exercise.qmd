@@ -4,6 +4,10 @@ format: pdf
 editor: source
 ---
 
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+```
+
 ## Part 1
 
 Given a matrix of explanatory variables `X` and a vector with response variable `Y`, write a function that calculates the coefficients of an OLS model. The function should output a list with three elements:
@@ -13,6 +17,57 @@ Given a matrix of explanatory variables `X` and a vector with response variable 
 - `S2`: A scalar estimate of $\sigma^2$
 
 For this function, you may assume that the regression matrix `X` has full rank.
+
+First, we will create a simulated dataset to test our function.
+
+```{r}
+set.seed(100)
+n <- 20
+beta_0 <- 3
+beta_1 <- 2
+beta_2 <- 0.75
+sigma2 <- 2.25
+x0 <- rep(1, n)
+x1 <- rexp(n, rate = 2)
+x2 <- rgeom(n, prob = 0.2)
+epsilon <- rnorm(n, sd = sqrt(sigma2))
+y <- beta_0 + (beta_1 * x1) + (beta_2 * x2) + epsilon
+x_mat <- data.frame(x0, x1, x2) %>% 
+  as.matrix()
+y_mat <- matrix(y, ncol = 1)
+
+df <- data.frame(x1, x2, y)
+```
+
+```{r}
+ols <- function(X, Y) {
+  beta_hat <- solve(t(X) %*% X) %*% t(X) %*% Y
+  S2 <- (t(Y - (X %*% beta_hat)) %*% (Y - (X %*% beta_hat)) / (nrow(X) - ncol(X))) %>% 
+    as.numeric()
+  v_beta_hat <- S2 * solve(t(X) %*% X)
+  out_list <- list(beta_hat, v_beta_hat, S2)
+  return(out_list)
+}
+```
+
+```{r}
+ols_test <- ols(x_mat, y_mat)
+lm_test <- lm(y ~ x1 + x2, data = df)
+```
+
+```{r}
+summary(lm_test)
+```
+
+```{r}
+ols_test
+```
+
+To compare these results, we see that `lm_test` has coefficient estimates of 3.3435, 1.5202, and 0.6494, while `ols_test` has coefficient estimates of 3.34349, 1.52017, and 0.64939. Therefore, the coefficient estimates are identical between the two functions.
+
+Next, compare the values given in the covariance matrix for $\hat{\beta}$ to the standard errors shown in the `lm()` output summary. The standard errors for the coefficient estimates are 0.5876, 0.7544, and 0.1013. After squaring these standard errors, we have 0.34526, 0.56905, and 0.01027. We can then see that these values are equivalent to the values on the diagonal of the variance of the coefficient estimate matrix for `ols_test`.
+
+Finally, we compare the residual standard error to our function's estimate for $\sigma^2$. From the `lm()` function summary, we see that we have a residual standard error of 1.274. When squared, this is equal to 1.623, roughly equal to the $S^2$ value of 1.622.
 
 ## Part 2
 
@@ -35,6 +90,32 @@ Load the Boston Housing Dataset contained in `HousingData.csv`. There are 14 var
 
 Use the regression function you defined previously to estimate the coefficients of a regression model using the average number of rooms per dwelling (`RM`) as the explanatory variable and the median value of owner-occupied homes (`MEDV`) as the response variable. Then, compare the results of your function to the results you receive using the `lm()` function.
 
+```{r}
+housing <- read_csv("HousingData.csv")
+```
+```{r}
+housing_x1 <- housing %>% 
+  select(RM) %>% 
+  as.matrix(ncol = 1)
+housing_x1 <- cbind(rep(1, nrow(housing_x1)), housing_x1)
+housing_y <- housing %>% 
+  select(MEDV) %>% 
+  as.matrix(ncol = 1)
+
+housing_ols1 <- ols(housing_x1, housing_y)
+housing_lm1 <- lm(MEDV ~ RM, data = housing)
+```
+
+```{r}
+housing_ols1
+```
+
+```{r}
+summary(housing_lm1)
+```
+
+The model results indicate that increasing the number of rooms in a home is associated with an increase of $9,102 in median home price. Proceeding with the checks conducted in part 1, we see that the coefficients and variance estimates are equivalent in the models fit using the `lm()` and `ols()` functions.
+
 ## Part 3
 
 Economists typically model real estate prices as a function of the amenities provided by the house (e.g. number of rooms, age, distance to workplace, education quality, etc.). In this section, we focus on the effect of education on real estate prices. We assume that a higher pupil-teacher ratio usually indicates lower funding for education. Notably, in the given dataset, there are two conflicting effects on home values:
@@ -43,3 +124,26 @@ Economists typically model real estate prices as a function of the amenities pro
 - Higher funding for education often requires higher property taxes, which likely leads to lower home values
 
 Using your regression function defined above, fit a regression model to quantify the associations between pupil-teacher ratio (`PTRATIO`), property taxes (`TAX`), and home values (`MEDV`). Compare the results of this model to the results you receive using the `lm()` function.
+
+```{r}
+housing_x2 <- housing %>% 
+  mutate(intercept = 1) %>% 
+  select(intercept, PTRATIO, TAX) %>% 
+  mutate(INTERACT = PTRATIO * TAX) %>% 
+  as.matrix(ncol = 4)
+```
+
+```{r}
+housing_ols2 <- ols(housing_x2, housing_y)
+housing_lm2 <- lm(MEDV ~ PTRATIO + TAX + PTRATIO * TAX, data = housing)
+```
+
+```{r}
+housing_ols2
+```
+
+```{r}
+summary(housing_lm2)
+```
+
+Again, a comparison of the model results indicate that the `lm()` and `ols()` functions are providing the same estimates. The model fit indicates that an increase of pupil:teacher ratio by one (one additional student per teacher) is associated with a decrease in median home value of $5,464, and that an increase in property taxes of \$1 per \$10,000 of home value is associated with a decrease in median home value of \$241. We also see a positive interaction coefficient between pupil:teacher ratio and property taxes.
