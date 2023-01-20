@@ -1,6 +1,6 @@
 ---
 title: "Day 2: Regression and ANOVA Exercise"
-format: html
+format: pdf 
 editor: source
 ---
 
@@ -36,11 +36,13 @@ x3 <- rnorm(n, mean = -2, sd = 5)
 x4 <- rpois(n, 3)
 x5 <- rbinom(n, 20, 0.5)
 
+pred_mat <- data.frame(x0, x1, x2, x3, x4, x5) %>% 
+  as.matrix(ncol = 6)
+
 # Error Terms
 epsilon <- rnorm(n, sd = sqrt(sigma2))
 epsilon2 <- rnorm(n, sd = (2*x2 + 1))
 epsilon3 <- rgamma(n, 2, 1)
-
 
 y <- beta_0 + 
   (beta_1 * x1) + 
@@ -75,14 +77,128 @@ First, run the code above to generate the three simulated datasets that we will 
 
 Fit a regression model on `df` using `x1`, `x2`, and `x3` as the predictor variables and run the appropriate regression diagnostics. Which OLS assumption is violated here? How do you think this affects our model estimates?
 
+```{r}
+lm1 <- lm(y ~ x1 + x2 + x3, data = df)
+```
+
+```{r}
+summary(lm1)
+```
+
+Based on the fact that all predictor variables have true nonzero coefficients, this model is an example of underfitting.
+
+```{r}
+ggplot() + 
+  geom_point(aes(x = lm1$fitted.values, y = lm1$residuals)) +
+  xlab("Fitted Values") +
+  ylab("Residuals")
+```
+
+The residual plot above does not indicate any critical concerns. The residuals at larger fitted values appear to have less variation around 0 than at lower fitted values, though this may be due to the presence of a smaller number of observations at this level of fitted values.
+
+Additionally, the Q-Q plot below also seems to show that the residuals are relatively normally distributed, with slight deviations at the tails.
+
+```{r}
+ggplot() +
+  geom_qq(aes(sample = lm1$residuals)) +
+  geom_qq_line(aes(sample = lm1$residuals))
+```
+
+Underfitting suggests that we would see biased coefficient estimates and a biased estimate of the variance of the error terms. Looking at the true coefficients from the simulation code, the coefficient estimates appear to be very accurate. However, we can see that the estimated residual standard error of 3.266, when squared, suggests that the estimated variance of the error terms is equal to 10.67, higher than the true value of 6.
+
 ## Part 2
 
 Fit a regression model on `df` using all possible predictor variables and run the appropriate regression diagnostics. Which OLS assumption is violated here? How do you think this affects our model estimates?
+
+```{r}
+lm2 <- lm(y ~ x1 + x2 + x3 + x4 + x5, data = df)
+```
+
+```{r}
+summary(lm2)
+```
+
+Because this model includes the `x5` variable, which we know truly has a coefficient equal to 0, this model is overfit. We expect the estimated coefficients to be unbiased, and the model summary shows that they are very close to the true coefficients. Additionally, squaring the residual standard error shows an estimated variance of 5.87, which is close to the true variance of 6.
+
+```{r}
+ggplot() +
+  geom_point(aes(x = lm2$fitted.values, y = lm2$residuals)) +
+  xlab("Fitted Values") +
+  ylab("Residuals")
+```
+
+The residual plot above again shows little indication of problems with the model fit, and the Q-Q plot below also shows that the residuals are also normally distributed.
+
+```{r}
+ggplot() +
+  geom_qq(aes(sample = lm2$residuals)) +
+  geom_qq_line(aes(sample = lm2$residuals))
+```
+
+Somewhat surprisingly for an overfit model, the estimated standard errors for the coefficients also align closely to the values seen in the true coefficient covariance matrix. It is possible that this would change with a smaller sample size.
+
+```{r}
+sigma2 * solve(t(pred_mat) %*% pred_mat)
+```
 
 ## Part 3
 
 Fit a regression model on `df2` using all predictor variables except `x5`, and run the appropriate regression diagnostics. Which OLS assumption is violated? How does this affect our model estimates?
 
+```{r}
+lm3 <- lm(y2 ~ x1 + x2 + x3 + x4, data = df2)
+```
+
+```{r}
+summary(lm3)
+```
+
+Examining the model summary, we see that again, the estimated coefficients are very close to the true values used in the data generation process. However, there are signs of higher error in the process, with the intercept estimate being further from the true value than in the previous model, and much higher standard errors than in the previous models. We can also see that the estimated residual standard error of 12.86 is much higher than what we observed in the other models.
+
+```{r}
+ggplot() +
+  geom_point(aes(x = lm3$fitted.values, y = lm3$residuals)) +
+  xlab("Fitted Values") +
+  ylab("Residuals")
+```
+
+The residual plot above shows the reason for this discrepancy: where in other models, the residuals generally showed less variation at higher fitted values, in this case the variation in the residuals increases dramatically as the fitted values rise. This tells us that homoscedasticity is violated, and we can expect to have biased variance estimates.
+
+```{r}
+ggplot() +
+  geom_qq(aes(sample = lm3$residuals)) +
+  geom_qq_line(aes(sample = lm3$residuals))
+```
+
+From the Q-Q plot above, we can see a departure from normality.
+
 ## Part 4
 
 Fit a regression model on `df3` using all predictor variables except `x5`, and run the appropriate regression diagnostics. Which OLS assumption is violated? How does this affect our model estimates?
+
+```{r}
+lm4 <- lm(y3 ~ x1 + x2 + x3 + x4, data = df3)
+```
+
+```{r}
+summary(lm4)
+```
+
+Looking at the model summary, we can see that the estimated coefficients are very close to the true coefficients, but the estimated standard errors tend to be different from the true regression coefficient covariance matrix. 
+
+```{r}
+ggplot() +
+  geom_point(aes(x = lm4$fitted.values, y = lm4$residuals)) +
+  xlab("Fitted Values") +
+  ylab("Residuals")
+```
+
+The residual plot is showing an uncommon pattern, with the residual values not symmetrically distributed around 0. This is an early indication that the residuals may not be normally (or symmetrically) distributed. This is confirmed by the Q-Q plot below.
+
+```{r}
+ggplot() +
+  geom_qq(aes(sample = lm4$residuals)) +
+  geom_qq_line(aes(sample = lm4$residuals))
+```
+
+
