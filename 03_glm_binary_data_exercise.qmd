@@ -1,0 +1,22 @@
+---
+title: "Day 3: GLMs for Binary Data Exercise"
+format: pdf
+editor: source
+---
+
+Load the `Titanic-Dataset.csv` file. This CSV file contains information about a subset of the passengers on the Titanic. This dataset has 12 variables:
+
+- `PassengerId`: Passenger ID Number
+- `Survived`: 1 = survived, 0 = did not survive
+- `Pclass`: Passenger class
+- `Name`
+- `Sex`
+- `Age`
+- `SibSp`: Number of siblings / spouses aboard the Titanic
+- `Parch`: Number of parents / children aboard the Titanic
+- `Ticket`: Ticket number
+- `Fare`: Fare paid for ticket
+- `Cabin`: Cabin number
+- `Embarked`: Embarkation point - "S" = Southampton, England; "C" = Cherbourg, France; "Q" = Queenstown, Ireland
+
+We are interested in better understanding which factors may have influence whether someone survived the disaster. Fit a logistic regression model to predict each passenger's survival status, provide an interpretation of the coefficients included in the model, and assess the performance of the model. Next, fit a probit regression model, and compare its performance to the results of the logistic regression model. Which model would you choose to use? Which variables were the most important for predicting survival? Does this make sense to you?
