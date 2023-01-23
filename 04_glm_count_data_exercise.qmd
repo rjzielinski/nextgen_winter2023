@@ -14,16 +14,157 @@ knitr::opts_chunk$set(warning = FALSE)
 # install.packages("pscl")
 library(AER)
 library(pscl)
+library(tidyverse)
 ```
 
 Use the `AER` package to load the `Medicaid1986` dataset. Information on the included data can be found using the `?Medicaid1986` command.
 
 Suppose we are interested in modeling the number of doctor visits per year for each individual in the dataset, conditional on the information provided in all other given variables. What type of data is this response variable, and which distribution would be most applicable in this case?
 
+This data is count data, as it describes the number of times an event occurs in a given timeframe. This type of data is frequently assumed to have the Poisson distribution. However, the histograms below compare the distribution of the number of visits with data generated from a Poisson distribution with the same mean. We see that the observed data has both a higher proportion of observations where the outcome is equal to 0, and a wider right tail, indicating that over-dispersion may be present.
+
+```{r}
+data("Medicaid1986")
+```
+
+
+```{r}
+ggplot() +
+  geom_histogram(
+    aes(x = Medicaid1986$visits, y = after_stat(ncount)), 
+    fill = "#CC6666", 
+    alpha = 0.5
+  ) +
+  geom_histogram(
+    aes(x = rpois(10000, 1.9307), y = after_stat(ncount)), 
+    fill = "#6666CC", 
+    alpha = 0.5
+  )
+```
+
 ## Part I
 
 First, try using a log-linear model to fit the data. Use model diagnostics to determine whether the necessary assumptions hold, and provide an interpretation for the model coefficients. Do you think this model is a good fit?
 
+We begin with some data exploration. The variables that clearly have potential to be related to the number of visits attended are `health1`, `health2` and `access`, with the first two variables providing direct information about an individual's health status, while the third provides information on how easy or difficult it is to schedule and attend an appointment.
+
+The presence of several outliers makes it difficult to assess the relationship between the variables, so we exclude them from the plots below. In the first plot, there appears to be a loose positive association between `health1` and the number of visits.
+
+```{r}
+Medicaid1986 %>% 
+  filter(visits < 20) %>% 
+  ggplot() +
+  geom_point(aes(x = health1, y = visits), position = "jitter")
+```
+
+```{r}
+Medicaid1986 %>% 
+  filter(visits < 20) %>% 
+  ggplot() +
+  geom_point(aes(x = health2, y = visits))
+```
+
+However, it is difficult to see any meaningful relationship between `health2` and the number of visits, and `access` and the number of visits.
+
+```{r}
+ggplot(Medicaid1986) +
+  geom_point(aes(x = access, y = visits))
+```
+
+We try fitting the Poisson regression model on all available predictive variables. The model summary indicates a large number of significant predictors, with `health1` and `access` in particular showing significant large positive coefficients.
+
+```{r}
+pois_mod <- glm(
+  visits ~ ., 
+  data = Medicaid1986,
+  family = poisson()
+)
+
+summary(pois_mod)
+```
+
+Exponentiating the coefficients allows us to clearly interpret them. For instance, we can say that, all else equal, for each unit increase in access to health care services, the predicted number of doctor's visits will be 154% that of the predicted number of visits for the lower access value. Interestingly, the model predicts that for each increase of one child living in the individual's household, the number of doctor's visits will be 88% that of the predicted number for someone with one fewer child.
+
+```{r}
+exp(pois_mod$coefficients)
+```
+To assess whether over-dispersion is present, we use residual plots as well as well as estimating the dispersion term using the residual deviance. By dividing the residual deviance of 2971.5 by the number of degrees of freedom (982), we estimate the deviance term to be equal to 3.026, much higher than the value of 1 that represents equi-dispersion. The residual plot shown below also indicates the presence of over-dispersion, with the mean value of the square root of the Pearson residuals climbing above 1 at points in the plot (we want to see the red line flat and staying below 1, ideally around 0.8).
+
+```{r}
+plot(pois_mod, which = 3)
+```
+
+Finally, the `AER` package provides a statistical test to confirm the presence of over-dispersion:
+
+```{r}
+dispersiontest(pois_mod)
+```
+
+Additionally, comparing the distribution of the predicted response values from the model and the observed response values shows that we are substantially underestimating the number of responses that equal 0.
+
+```{r}
+pois_mod_pred <- predict(pois_mod, type = "response")
+ggplot() +
+  geom_density(aes(x = pois_mod_pred), fill = "#CC6666", alpha = 0.5) +
+  geom_density(aes(x = Medicaid1986$visits), fill = "#6666CC", alpha = 0.5)
+```
+
+One way that we could possibly rectify this situation is to use the variance stabilizing transformation $f(Y) = \sqrt{Y}$.
+
+```{r}
+pois_mod2 <- glm(round(sqrt(visits)) ~ ., data = Medicaid1986, family = poisson())
+
+summary(pois_mod2)
+```
+
+From this second model, we see that the number of predictor variables with significant predictors is substantially reduced. Importantly, we see that the residual deviance indicates an estimate of the dispersion parameter close to 1, showing that over-dispersion is likely not a problem in this case. 
+
+```{r}
+plot(pois_mod2, which = 3)
+```
+
+This is confirmed with a residual plot showing the Pearson residuals at more reasonable levels, as well as the dispersion test showing a high p-value.
+
+```{r}
+dispersiontest(pois_mod2)
+```
+
+```{r}
+pois_mod2_pred <- predict(pois_mod2, type = "response")
+
+ggplot() +
+  geom_density(aes(x = pois_mod2_pred), fill = "#CC6666", alpha = 0.5) +
+  geom_density(aes(x = sqrt(Medicaid1986$visits)), fill = "#6666CC", alpha = 0.5)
+```
+
+However, the density plots above still indicate that we are not properly capturing the distribution of the observed responses.
+
 ## Part II
 
 Next, try fitting a hurdle model for the same outcome. Why might this approach be useful in this case? How do the predictions differ between the two models?
+
+From the previous section, we saw that the Poisson regression model did not properly capture the true distribution of the observed outcomes, particularly underestimating the number of outcomes equal to 0. A hurdle model may be better equipped to capture this.
+
+```{r}
+hurdle_mod <- hurdle(visits ~ ., data = Medicaid1986)
+
+summary(hurdle_mod)
+```
+
+From the model summary, we see that the two health predictor variables are very important to modeling whether someone attends 0 doctor's visits in the given time frame or not. The count model at the top of the summary then considers a greater number of predictors. Generally, we can see that the coefficients are similar directionally to those seen in the Poisson regression model from the previous part.
+
+To reach predictions from the hurdle model, we need to combine the results of the two models. To do this, we use two different `type` arguments in the `predict()` function: `type = "prob"` will give the probability of an output being equal to 0, while `type = "response"` gives the estimated outcome given that it is not equal to 0. To obtain the full predictions, we round the probability of predicting an outcome equal to 0 to the nearest integer, subtract this value from 1, then multiply by the response predictions. This will ensure that the full prediction is equal to 0 for any observation where the logistic regression model indicates that the outcome will be equal to 0, while not modifying the prediction from the count model when appropriate.
+
+```{r}
+hurdle_mod_pred <- (1 - round(predict(hurdle_mod, type = "prob"))) * 
+  predict(hurdle_mod, type = "response")
+```
+
+From the density plots below, we can see that the hurdle model captures the true number of outcomes equal to 0 much more accurately than the Poisson regression model, indicating that the hurdle model likely has a better overall fit. We could confirm this by calculating the MSE for each model. Note that in practice, it will be more effective to split the data into train and test sets.
+
+```{r}
+ggplot() +
+  geom_density(aes(x = hurdle_mod_pred), fill = "#CC6666", alpha = 0.5) +
+  geom_density(aes(x = Medicaid1986$visits), fill = "#6666CC", alpha = 0.5)
+```
+
