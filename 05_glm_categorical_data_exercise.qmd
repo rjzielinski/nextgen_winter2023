@@ -4,16 +4,192 @@ format: pdf
 editor: source
 ---
 
+```{r}
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(effects)
+library(VGAM)
+library(nnet)
+library(lubridate)
+```
+
 ## Part I
 
 Load the dataset `squirrel_census.csv`. This file includes a number of variables describing squirrel behavior and physical features during squirrel sightings in Central Park. We are interested in finding whether we are able to successfully use this information to predict a squirrel's primary fur color.
 
 What type of categorical scale best describes the response variable here, and what would be the most appropriate model for this task?
 
+The primary fur color is a categorical variable on the nominal scale. The baseline-category model would likely be the most appropriate model for the given modeling outcome.
+
 Fit the model mentioned above, and provide an interpretation for the model coefficients.
+
+When we load the dataset, we also reformat many of the variable names and discard some of the variables that have inconsistent values.
+
+```{r}
+squirrels <- read_csv("squirrel_census.csv") %>% 
+  rename(
+    id = "Unique Squirrel ID",
+    hectare = "Hectare",
+    shift = "Shift",
+    date = "Date",
+    hectare_squirrel = "Hectare Squirrel Number",
+    age = "Age",
+    primary_fur = "Primary Fur Color",
+    highlight_fur = "Highlight Fur Color",
+    primary_highlight_fur = "Combination of Primary and Highlight Color",
+    color_notes = "Color notes",
+    location = "Location",
+    sighter_measurement = "Above Ground Sighter Measurement",
+    specific_location = "Specific Location",
+    running = Running,
+    chasing = Chasing,
+    climbing = Climbing,
+    eating = Eating,
+    foraging = Foraging,
+    other_activities = "Other Activities",
+    kuks = Kuks,
+    quaas = Quaas,
+    moans = Moans,
+    flags = "Tail flags",
+    twitches = "Tail twitches",
+    approaches = Approaches,
+    indifferent = Indifferent,
+    runs_from = "Runs from",
+    interactions = "Other Interactions",
+    lat_long = "Lat/Long"
+  ) %>% 
+  select(
+    X,
+    Y,
+    id,
+    hectare,
+    shift,
+    date,
+    age,
+    primary_fur,
+    highlight_fur,
+    primary_highlight_fur,
+    location,
+    sighter_measurement,
+    running,
+    chasing,
+    climbing,
+    eating,
+    foraging,
+    kuks,
+    quaas,
+    moans,
+    flags,
+    twitches,
+    approaches,
+    indifferent,
+    runs_from
+  ) %>% 
+  mutate(
+    date = mdy(date)
+  )
+```
+
+When fitting the model, we include most of the available predictors. Because all data collection takes place within Central Park, the location variables are likely irrelevant, so they are excluded, as are variables with a large number of missing values. From the model summary, we see that the squirrels with black fur are used as the baseline category, so the estimated coefficients describe the differences between the baseline group and the groups with gray and cinnamon fur, respectively.
+
+```{r}
+bc_mod <- multinom(
+  primary_fur ~ shift +
+    age +
+    location +
+    running +
+    chasing +
+    climbing +
+    eating +
+    foraging +
+    kuks +
+    quaas +
+    moans +
+    flags +
+    twitches +
+    approaches +
+    indifferent +
+    runs_from,
+  data = squirrels
+)
+
+summary(bc_mod)
+```
+
+We can interpret each coefficient as the increase in log-odds of falling into one category versus another as a result of a one-unit increase in the applicable explanatory variable. For example, with all else equal, the log-odds of a squirrel having gray fur versus black fur increases by 0.276 if it is seen running instead of not running, meaning that all else equal, a squirrel seen running is 1.32 times more likely to have gray fur instead of black fur than a squirrel not seen running. Other coefficients can be interpreted analogously.
 
 ## Part II
 
 Use the `effects` package to load the `WVS` dataset. This file includes information from the world values survey. More information can be found with `?WVS`. We are interested in the outcome of `poverty`, an evaluation of whether the government's efforts to help those in poverty are too little, about right, or too much. What type of data is this, and what type of model would be appropriate for this situation?
 
+```{r}
+data(WVS)
+```
+
+This data is categorical on an ordinal scale. Because of this, a cumulative logit model  or proportional odds model would likely be appropriate.
+
 Fit a cumulative logit model and a proportional odds model. Does the proportional odds assumption apply in this setting? Provide an interpretation of the model coefficients for the proportional odds model.
+
+First, we begin by fitting the cumulative logit model.
+
+```{r}
+mod1 <- vglm(
+  poverty ~ religion + degree + country + age + gender, 
+  data = WVS,
+  family = cumulative
+)
+```
+
+```{r}
+summary(mod1)
+```
+
+At this point, looking at the model summary provides one important piece of information: the residual deviance, which is a measure of model fit. We will use this value to compare the cumulative logit model and the proportional odds model that we fit below.
+
+```{r}
+mod2 <- vglm(
+  poverty ~ religion + degree + country + age + gender,
+  data = WVS,
+  family = cumulative(parallel = TRUE)
+)
+
+summary(mod2)
+```
+
+This model fit shows higher deviance than in the cumulative logit model, which is expected given that the proportional odds model is less flexible than the more general cumulative logit model, and will thus show worse fit to the data. 
+
+```{r}
+pchisq(
+  deviance(mod2) - deviance(mod1),
+  df = df.residual(mod2) - df.residual(mod1),
+  lower.tail = FALSE
+)
+```
+
+The p-value from the $\chi^2$ distribution shown above indicates that there is significant evidence to show that the proportional odds assumption does not hold in this case. Examining the coefficients in the cumulative logit model, we can see substantial differences in coefficients between response levels, particularly for the country coefficients. This is not surprising given that whether someone feels that the government is providing enough support to those in poverty will depend largely on the policies of the government in question. To address this concern, we may consider a partial proportional odds assumption, rather than enforcing a complete proportional odds assumption. Under this assumption, we will assume that the country coefficients will very by response level, but the other coefficients will stay constant. WE fit this model as follows:
+
+```{r}
+mod3 <- vglm(
+  poverty ~ religion + degree + country + age + gender,
+  data = WVS,
+  family = cumulative(parallel = FALSE~country)
+)
+
+summary(mod3)
+```
+
+```{r}
+pchisq(
+  deviance(mod3) - deviance(mod1),
+  df = df.residual(mod3) - df.residual(mod1),
+  lower.tail = FALSE
+)
+```
+
+When running the same test of the proportional odds assumption, we again find evidence that it is not the most accurate, but the p-value is not significant at $\alpha = 0.05$, and at this point the convenience of the assumption likely outweighs any loss in performance resulting from the less flexible model specification.
+
+Looking at the exponentiated coefficients shows that, for example, the odds of men feeling like government is doing too little to support those in poverty compared to doing about the right amount or too much is approximately 0.84 times the odds of women feeling like that. Because this is a (partial) proportional odds model, this coefficient also applies to the odds of feeling like government is doing either too little or about the right amount compared with too much to support those in poverty. Additionally, we see that for each increase in age of one year, the estimated odds of feeling like government is doing too little to support those in poverty compared with doing about the right amount or too much decreases by about one percent.
