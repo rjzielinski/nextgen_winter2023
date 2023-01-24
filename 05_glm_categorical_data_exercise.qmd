@@ -1,0 +1,19 @@
+---
+title: "GLMs for Categorical Data Exercise"
+format: pdf
+editor: source
+---
+
+## Part I
+
+Load the dataset `squirrel_census.csv`. This file includes a number of variables describing squirrel behavior and physical features during squirrel sightings in Central Park. We are interested in finding whether we are able to successfully use this information to predict a squirrel's primary fur color.
+
+What type of categorical scale best describes the response variable here, and what would be the most appropriate model for this task?
+
+Fit the model mentioned above, and provide an interpretation for the model coefficients.
+
+## Part II
+
+Use the `effects` package to load the `WVS` dataset. This file includes information from the world values survey. More information can be found with `?WVS`. We are interested in the outcome of `poverty`, an evaluation of whether the government's efforts to help those in poverty are too little, about right, or too much. What type of data is this, and what type of model would be appropriate for this situation?
+
+Fit a cumulative logit model and a proportional odds model. Does the proportional odds assumption apply in this setting? Provide an interpretation of the model coefficients for the proportional odds model.
